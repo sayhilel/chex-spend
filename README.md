@@ -157,7 +157,7 @@ Prerequisites: the Azure CLI (`az login` done), the GitHub CLI (`gh auth login` 
    REPO=your-user/spending-checkup ./bootstrap.sh
    ```
    Optional: `RG`, `LOCATION` (default `eastus`), `APP_NAME`, `STATE_ACCOUNT`. The script is safe to re-run. It:
-   - registers the resource providers;
+   - registers the resource providers (Terraform has `resource_provider_registrations = "none"`, because the deploy identity can't register providers subscription-wide);
    - creates the resource group;
    - creates the keyless Terraform state storage account and its `tfstate` container;
    - creates the GitHub app registration with federated credentials for the `plan` and `production` environments;
