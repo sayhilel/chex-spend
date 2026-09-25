@@ -146,6 +146,8 @@ The **approval gate** is GitHub's "required reviewers" setting on the `productio
 
 **Why the code deploy retries:** the function app uploads its own code package to storage using its managed identity. On the very first deploy, Terraform grants that storage role only seconds before the upload, and a new Azure role can take several minutes to take effect, so the first attempt can fail with a 403. Retrying once a minute covers the delay. Later deploys succeed on the first attempt.
 
+**Why `AzureWebJobsStorage = ""`:** the Terraform provider always writes a key-style `AzureWebJobsStorage` connection string on Flex apps. With identity auth it has an empty key, and the Functions host prefers it over `AzureWebJobsStorage__accountName`. Because account keys are off, the host's own storage calls then fail with 403, and every deploy's final trigger-sync step fails with a 500. Setting it to an empty string in `app_settings` overrides the provider's value, and the host falls back to the managed identity. The catch: the provider doesn't read this setting back, so every `terraform plan` shows a harmless in-place update to the function app.
+
 The **smoke test** uploads `samples/chase.csv` to the live site, follows the redirect, and checks that the report contains "Groceries" and the Kroger double charge. It retries for about 2 minutes to cover a cold start.
 
 ---
