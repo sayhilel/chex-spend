@@ -51,7 +51,7 @@ One function does everything, one storage account holds everything, and there's 
 4. A **storage lifecycle rule** deletes anything under `uploads/` and `reports/` 7 days after it was written.
 5. Every request is logged to App Insights automatically, and each analysis adds one line of its own.
 
-`host.json` sets `routePrefix` to `""`, so the URLs are `/upload` rather than Azure's default `/api/upload`.
+`host.json` sets `routePrefix` to `""`, so the URLs are `/upload` rather than Azure's default `/api/upload`. The Functions host doesn't let a function claim `/` with an empty route; its own welcome page wins. So the home route is `{empty:maxlength(0)?}`, which matches only an empty path, and the `AzureWebJobsDisableHomepage` setting turns the welcome page off.
 
 ### Code layout
 
@@ -148,7 +148,7 @@ The **approval gate** is GitHub's "required reviewers" setting on the `productio
 
 **Why `AzureWebJobsStorage = ""`:** the Terraform provider always writes a key-style `AzureWebJobsStorage` connection string on Flex apps. With identity auth it has an empty key, and the Functions host prefers it over `AzureWebJobsStorage__accountName`. Because account keys are off, the host's own storage calls then fail with 403, and every deploy's final trigger-sync step fails with a 500. Setting it to an empty string in `app_settings` overrides the provider's value, and the host falls back to the managed identity. The catch: the provider doesn't read this setting back, so every `terraform plan` shows a harmless in-place update to the function app.
 
-The **smoke test** uploads `samples/chase.csv` to the live site, follows the redirect, and checks that the report contains "Groceries" and the Kroger double charge. It retries for about 2 minutes to cover a cold start.
+The **smoke test** uploads `samples/chase.csv` to the live site, follows the redirect, and checks that the report contains "Groceries" and the Kroger double charge. It also checks that `/` serves the upload form rather than Azure's default welcome page. It retries for about 2 minutes to cover a cold start.
 
 ---
 

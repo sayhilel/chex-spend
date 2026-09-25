@@ -101,6 +101,7 @@ jobs:
             sleep 10
           done
           echo "report: $report"
+          curl -fsS "$url/" | grep -q "Check my spending"
           page=$(curl -fsS "$report")
           echo "$page" | grep -q "Groceries"
           echo "$page" | grep -q "Possible double charges"

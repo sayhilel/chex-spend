@@ -33,7 +33,7 @@ def html(body, status=200):
     return func.HttpResponse(body, status_code=status, mimetype="text/html")
 
 
-@app.route(route="", methods=["GET"])
+@app.route(route="{empty:maxlength(0)?}", methods=["GET"])
 def home(req: func.HttpRequest) -> func.HttpResponse:
     return html(UPLOAD_PAGE)
 

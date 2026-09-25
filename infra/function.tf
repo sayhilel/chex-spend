@@ -26,6 +26,7 @@ resource "azurerm_function_app_flex_consumption" "main" {
 
   app_settings = {
     AzureWebJobsStorage              = ""
+    AzureWebJobsDisableHomepage      = "true"
     AzureWebJobsStorage__accountName = azurerm_storage_account.main.name
     STORAGE_URL                      = azurerm_storage_account.main.primary_blob_endpoint
   }
