@@ -38,16 +38,19 @@ if [[ -z "$CLIENT_ID" ]]; then
 fi
 SP_ID=$(az ad sp show --id "$CLIENT_ID" --query id -o tsv 2>/dev/null || az ad sp create --id "$CLIENT_ID" --query id -o tsv)
 
+# Newer repos put numeric IDs in the token subject (repo:owner@123/name@456), so ask GitHub.
+SUB_PREFIX=$(gh api "repos/$REPO/actions/oidc/customization/sub" -q .sub_claim_prefix 2>/dev/null || echo "repo:$REPO")
 for env in plan production; do
-  subject="repo:${REPO}:environment:${env}"
-  exists=$(az ad app federated-credential list --id "$CLIENT_ID" --query "[?subject=='$subject'] | length(@)" -o tsv)
-  if [[ "$exists" == "0" ]]; then
-    az ad app federated-credential create --id "$CLIENT_ID" -o none --parameters "{
-      \"name\": \"github-${env}\",
-      \"issuer\": \"https://token.actions.githubusercontent.com\",
-      \"subject\": \"${subject}\",
-      \"audiences\": [\"api://AzureADTokenExchange\"]
-    }"
+  params="{
+    \"name\": \"github-${env}\",
+    \"issuer\": \"https://token.actions.githubusercontent.com\",
+    \"subject\": \"${SUB_PREFIX}:environment:${env}\",
+    \"audiences\": [\"api://AzureADTokenExchange\"]
+  }"
+  if az ad app federated-credential show --id "$CLIENT_ID" --federated-credential-id "github-${env}" -o none 2>/dev/null; then
+    az ad app federated-credential update --id "$CLIENT_ID" --federated-credential-id "github-${env}" --parameters "$params" -o none
+  else
+    az ad app federated-credential create --id "$CLIENT_ID" --parameters "$params" -o none
   fi
 done
 

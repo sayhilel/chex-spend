@@ -150,7 +150,7 @@ The **smoke test** uploads `samples/chase.csv` to the live site, follows the red
 
 ## Setup
 
-Prerequisites: the Azure CLI (`az login` done), a GitHub repository for this code, and permission to create app registrations in your Entra tenant.
+Prerequisites: the Azure CLI (`az login` done), the GitHub CLI (`gh auth login` done), a GitHub repository for this code, and permission to create app registrations in your Entra tenant.
 
 1. **Bootstrap (once):**
    ```sh
