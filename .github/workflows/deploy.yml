@@ -1,0 +1,103 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ARM_USE_OIDC: true
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_resource_group_name: ${{ vars.AZURE_RESOURCE_GROUP }}
+  TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+  TF_INIT: >-
+    terraform init
+    -backend-config=resource_group_name=${{ vars.AZURE_RESOURCE_GROUP }}
+    -backend-config=storage_account_name=${{ vars.TF_STATE_ACCOUNT }}
+    -backend-config=container_name=tfstate
+    -backend-config=key=spending-checkup.tfstate
+    -backend-config=use_azuread_auth=true
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  plan:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: plan
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: $TF_INIT
+      - run: terraform plan -out tfplan
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: infra/tfplan
+          retention-days: 1
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: infra
+      - run: $TF_INIT
+      - run: terraform apply tfplan
+      - name: Read outputs
+        id: tf
+        run: |
+          echo "app=$(terraform output -raw function_app_name)" >> "$GITHUB_OUTPUT"
+          echo "url=$(terraform output -raw url)" >> "$GITHUB_OUTPUT"
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.tf.outputs.app }}
+          package: src
+          sku: flexconsumption
+          remote-build: true
+
+      - name: Smoke test
+        working-directory: .
+        run: |
+          url="${{ steps.tf.outputs.url }}"
+          for i in $(seq 1 12); do
+            report=$(curl -sS -o /dev/null -w '%{redirect_url}' -F file=@samples/chase.csv "$url/upload" || true)
+            [ -n "$report" ] && break
+            sleep 10
+          done
+          echo "report: $report"
+          page=$(curl -fsS "$report")
+          echo "$page" | grep -q "Groceries"
+          echo "$page" | grep -q "Possible double charges"
+          echo "$page" | grep -q "KROGER"
+          echo "Smoke test passed: $url" >> "$GITHUB_STEP_SUMMARY"

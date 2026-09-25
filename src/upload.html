@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spending Checkup</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 3rem auto; padding: 0 1rem; color: #222; }
+    button { padding: .6rem 1.2rem; font-size: 1rem; }
+    .note { color: #666; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>Spending Checkup</h1>
+  <p>Upload the CSV export from your bank. You'll get spending by category, recurring charges and possible double charges.</p>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <p><input type="file" name="file" accept=".csv" required></p>
+    <p><button type="submit">Check my spending</button></p>
+  </form>
+  <p class="note">CSV only, up to 1 MB. No account needed. Your file and report are deleted after 7 days.</p>
+</body>
+</html>
