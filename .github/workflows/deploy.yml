@@ -79,12 +79,17 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ steps.tf.outputs.app }}
-          package: src
-          sku: flexconsumption
-          remote-build: true
+      - name: Deploy function code
+        working-directory: src
+        run: |
+          zip -qr ../app.zip . -x 'tests/*' '*__pycache__*'
+          for i in 1 2 3 4 5; do
+            az functionapp deployment source config-zip --build-remote true --src ../app.zip \
+              -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n "${{ steps.tf.outputs.app }}" && exit 0
+            echo "Deploy failed (attempt $i/5), retrying in 60s"
+            sleep 60
+          done
+          exit 1
 
       - name: Smoke test
         working-directory: .

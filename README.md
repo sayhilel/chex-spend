@@ -140,9 +140,11 @@ The resource group comes from `bootstrap.sh` rather than Terraform, because the 
 | Workflow | Runs on | What it does |
 |---|---|---|
 | `ci.yml` | Every pull request (and at the start of every deploy) | `pytest`, `terraform fmt -check`, `terraform validate` |
-| `deploy.yml` | Merge to `main` | **plan** job (environment `plan`): `terraform plan` → saved plan artifact. **apply** job (environment `production`, waits for **your approval**): `terraform apply` of that exact plan → deploy `src/` with remote build → smoke test |
+| `deploy.yml` | Merge to `main` | **plan** job (environment `plan`): `terraform plan` → saved plan artifact. **apply** job (environment `production`, waits for **your approval**): `terraform apply` of that exact plan → zip `src/` and deploy it with remote build (retried up to 5 times, a minute apart) → smoke test |
 
 The **approval gate** is GitHub's "required reviewers" setting on the `production` environment. The Azure federated credential trusts the environment by name, so skipping the gate means no Azure login.
+
+**Why the code deploy retries:** the function app uploads its own code package to storage using its managed identity. On the very first deploy, Terraform grants that storage role only seconds before the upload, and a new Azure role can take several minutes to take effect, so the first attempt can fail with a 403. Retrying once a minute covers the delay. Later deploys succeed on the first attempt.
 
 The **smoke test** uploads `samples/chase.csv` to the live site, follows the redirect, and checks that the report contains "Groceries" and the Kroger double charge. It retries for about 2 minutes to cover a cold start.
 
